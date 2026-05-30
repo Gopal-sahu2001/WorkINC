@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Analytics — WORKinc</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <style>
+    .chart-wrap {
+      position: relative;
+      height: 200px;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      padding: 1rem 0 0;
+    }
+
+    .bar-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+
+    .bar {
+      width: 100%;
+      border-radius: 6px 6px 0 0;
+      background: var(--green-dim);
+      border: 1px solid rgba(34,197,94,0.2);
+      transition: background 0.2s, height 0.8s ease;
+      cursor: pointer;
+      min-height: 4px;
+    }
+
+    .bar:hover { background: rgba(34,197,94,0.25); }
+    .bar.current { background: var(--green); border-color: var(--green); }
+
+    .bar-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .bar-val {
+      font-size: 0.65rem;
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .donut-wrap {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .donut-svg { flex-shrink: 0; }
+
+    .donut-legend { flex: 1; }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0.4rem 0;
+      font-size: 0.8rem;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .legend-item:last-child { border-bottom: none; }
+
+    .legend-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .legend-name { flex: 1; }
+    .legend-pct { font-weight: 700; color: var(--white); }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem; }
+    @media (max-width: 768px) { .two-col { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  {% include 'partials/sidebar.html' %}
+
+  <div class="main-content">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Analytics</h1>
+        <p>Track your spending patterns and trends</p>
+      </div>
+      <div class="topbar-right">
+        <select class="topbar-date" id="period-select" onchange="updateCharts(this.value)"
+          style="cursor:pointer;background:transparent;color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:0.4rem 0.875rem;font-family:inherit;font-size:0.78rem;outline:none;">
+          <option value="6">Last 6 months</option>
+          <option value="12">Last 12 months</option>
+          <option value="3">Last 3 months</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- ── SUMMARY ── -->
+      <div class="stat-grid" style="margin-bottom:1.5rem;">
+        <div class="card">
+          <div class="card-title">Total Paid (YTD)</div>
+          <div class="card-value">₹{{ analytics.ytd | default('54,300') }}</div>
+          <div class="card-sub">↑ 8% vs last year</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Avg Monthly</div>
+          <div class="card-value">₹{{ analytics.avg_monthly | default('9,050') }}</div>
+          <div class="card-sub">Last 6 months</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Most Expensive</div>
+          <div class="card-value" style="font-size:1.2rem;">{{ analytics.top_bill | default('Electricity') }}</div>
+          <div class="card-sub">₹{{ analytics.top_amount | default('1,840') }}/mo</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+
+        <!-- ── BAR CHART ── -->
+        <div class="card">
+          <div class="card-title" style="margin-bottom:0.25rem;">Monthly Spend</div>
+          <div style="font-size:0.72rem;color:var(--muted);margin-bottom:0.5rem;">Tap a bar for details</div>
+          <div class="chart-wrap" id="bar-chart"></div>
+        </div>
+
+        <!-- ── DONUT CHART ── -->
+        <div class="card">
+          <div class="card-title" style="margin-bottom:1rem;">Spend by Category</div>
+          <div class="donut-wrap">
+            <svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120" id="donut-svg">
+              <!-- filled by JS -->
+            </svg>
+            <div class="donut-legend" id="donut-legend"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── TRANSACTION HISTORY ── -->
+      <div class="card">
+        <div class="section-head" style="margin-bottom:1rem;">
+          Payment History
+          <span style="color:var(--muted);font-weight:400;">All time</span>
+        </div>
+
+        {% if transactions %}
+          {% for t in transactions %}
+          <div class="row-item">
+            <div class="row-left">
+              <div class="row-icon" style="background:rgba(59,130,246,0.1);">✓</div>
+              <div>
+                <div class="row-name">{{ t.name }}</div>
+                <div class="row-sub">{{ t.date }} · {{ t.method }}</div>
+              </div>
+            </div>
+            <div class="row-right">
+              <div class="row-amount">₹{{ t.amount }}</div>
+              <span class="pill pill-green">Paid</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <!-- DEMO -->
+          {% set demo = [
+            ('Electricity — TPCODL','Apr 28, 2026','Stripe','1,840'),
+            ('Broadband — Airtel','Apr 30, 2026','Stripe','999'),
+            ('Water — BWSSB','Apr 30, 2026','Stripe','420'),
+            ('Electricity — TPCODL','Mar 28, 2026','Stripe','1,840'),
+            ('Broadband — Airtel','Mar 30, 2026','Stripe','999'),
+          ] %}
+          {% for name, date, method, amount in demo %}
+          <div class="row-item">
+            <div class="row-left">
+              <div class="row-icon" style="background:rgba(59,130,246,0.1);">✓</div>
+              <div>
+                <div class="row-name">{{ name }}</div>
+                <div class="row-sub">{{ date }} · {{ method }}</div>
+              </div>
+            </div>
+            <div class="row-right">
+              <div class="row-amount">₹{{ amount }}</div>
+              <span class="pill pill-green">Paid</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+<script>
+  // Data from Flask — replace with: const monthlyData = {{ monthly_data | tojson }};
+  const monthlyData = {
+    6:  [8200, 9100, 7800, 10200, 9400, 12400],
+    3:  [10200, 9400, 12400],
+    12: [7000, 6800, 8200, 9100, 7800, 10200, 9400, 12400, 8900, 7600, 9800, 11200],
+  };
+
+  const monthLabels = {
+    6:  ['Dec','Jan','Feb','Mar','Apr','May'],
+    3:  ['Mar','Apr','May'],
+    12: ['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May'],
+  };
+
+  // Category data from Flask — replace with: const catData = {{ category_data | tojson }};
+  const catData = [
+    { name: 'Electricity', pct: 56, color: '#22c55e' },
+    { name: 'Internet',    pct: 31, color: '#3b82f6' },
+    { name: 'Water',       pct: 13, color: '#eab308' },
+  ];
+
+  function renderBars(period) {
+    const data = monthlyData[period];
+    const labels = monthLabels[period];
+    const max = Math.max(...data);
+    const chart = document.getElementById('bar-chart');
+    chart.innerHTML = '';
+    data.forEach((val, i) => {
+      const col = document.createElement('div');
+      col.className = 'bar-col';
+      const pct = Math.round((val / max) * 100);
+      col.innerHTML = `
+        <div class="bar-val">₹${(val/1000).toFixed(1)}k</div>
+        <div class="bar ${i === data.length - 1 ? 'current' : ''}"
+          style="height:${pct}%"></div>
+        <div class="bar-label">${labels[i]}</div>
+      `;
+      chart.appendChild(col);
+    });
+  }
+
+  function renderDonut() {
+    const svg = document.getElementById('donut-svg');
+    const legend = document.getElementById('donut-legend');
+    const cx = 60, cy = 60, r = 42, strokeW = 16;
+    const circ = 2 * Math.PI * r;
+    let offset = 0;
+    svg.innerHTML = `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="${strokeW}"/>`;
+    catData.forEach(cat => {
+      const dash = (cat.pct / 100) * circ;
+      const circle = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circle.setAttribute('cx', cx); circle.setAttribute('cy', cy); circle.setAttribute('r', r);
+      circle.setAttribute('fill','none');
+      circle.setAttribute('stroke', cat.color);
+      circle.setAttribute('stroke-width', strokeW);
+      circle.setAttribute('stroke-dasharray', `${dash} ${circ - dash}`);
+      circle.setAttribute('stroke-dashoffset', circ - offset);
+      circle.setAttribute('transform', `rotate(-90 ${cx} ${cy})`);
+      svg.appendChild(circle);
+      offset += dash;
+
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = `<div class="legend-dot" style="background:${cat.color}"></div>
+        <div class="legend-name">${cat.name}</div>
+        <div class="legend-pct">${cat.pct}%</div>`;
+      legend.appendChild(item);
+    });
+  }
+
+  function updateCharts(period) {
+    renderBars(parseInt(period));
+  }
+
+  renderBars(6);
+  renderDonut();
+</script>
+</body>
+</html>

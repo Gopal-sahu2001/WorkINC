@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Settings — WORKinc</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+  <style>
+    .settings-tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+
+    .tab {
+      padding: 0.65rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: all 0.2s;
+    }
+
+    .tab:hover { color: var(--white); }
+    .tab.active { color: var(--green); border-bottom-color: var(--green); }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    .settings-section {
+      background: var(--navy2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .settings-section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 1.25rem;
+      padding-bottom: 0.875rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .two-col-form { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+    @media (max-width: 768px) { .two-col-form { grid-template-columns: 1fr; } }
+
+    .danger-zone {
+      background: rgba(239,68,68,0.04);
+      border-color: rgba(239,68,68,0.15);
+    }
+
+    .danger-zone .settings-section-title { color: var(--red); }
+
+    .payment-card-display {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0.875rem 1rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 0.75rem;
+    }
+
+    .card-icon-big {
+      width: 40px; height: 28px;
+      background: var(--navy3);
+      border-radius: 5px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+
+    .card-ending { font-size: 0.82rem; color: var(--white); font-weight: 600; }
+    .card-exp    { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+
+  {% include 'partials/sidebar.html' %}
+
+  <div class="main-content">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Settings</h1>
+        <p>Manage your account and preferences</p>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-primary btn-sm" onclick="saveSettings()">Save changes</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- TABS -->
+      <div class="settings-tabs">
+        <div class="tab active" onclick="switchTab('profile')">Profile</div>
+        <div class="tab" onclick="switchTab('notifications')">Notifications</div>
+        <div class="tab" onclick="switchTab('payment')">Payment</div>
+        <div class="tab" onclick="switchTab('security')">Security</div>
+      </div>
+
+      <!-- ══ PROFILE TAB ══ -->
+      <div class="tab-panel active" id="tab-profile">
+        <form method="POST" action="/settings/profile">
+          <div class="settings-section">
+            <div class="settings-section-title">Personal Information</div>
+            <div class="two-col-form">
+              <div class="field">
+                <label>Full Name</label>
+                <input type="text" name="name" value="{{ current_user.name if current_user else '' }}" placeholder="Your name" />
+              </div>
+              <div class="field">
+                <label>Email Address</label>
+                <input type="email" name="email" value="{{ current_user.email if current_user else '' }}" placeholder="you@example.com" />
+              </div>
+              <div class="field">
+                <label>Phone Number</label>
+                <input type="tel" name="phone" value="{{ current_user.phone if current_user else '' }}" placeholder="+91 98765 43210" />
+              </div>
+              <div class="field">
+                <label>City</label>
+                <input type="text" name="city" value="{{ current_user.city if current_user else '' }}" placeholder="Bhubaneswar" />
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button type="submit" class="btn btn-primary">Update profile</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ══ NOTIFICATIONS TAB ══ -->
+      <div class="tab-panel" id="tab-notifications">
+        <form method="POST" action="/settings/notifications">
+          <div class="settings-section">
+            <div class="settings-section-title">Alert Preferences</div>
+            <div class="toggle-wrap">
+              <div class="toggle-info">
+                <h4>Pre-payment alerts</h4>
+                <p>Get notified 3 days before any bill is auto-paid</p>
+              </div>
+              <div class="toggle on" data-key="notif_prepayment"></div>
+            </div>
+            <div class="toggle-wrap">
+              <div class="toggle-info">
+                <h4>Payment confirmation</h4>
+                <p>Receive a confirmation when a payment goes through</p>
+              </div>
+              <div class="toggle on" data-key="notif_confirm"></div>
+            </div>
+            <div class="toggle-wrap">
+              <div class="toggle-info">
+                <h4>Failed payment alerts</h4>
+                <p>Immediate alert if a payment fails or is declined</p>
+              </div>
+              <div class="toggle on" data-key="notif_failed"></div>
+            </div>
+            <div class="toggle-wrap">
+              <div class="toggle-info">
+                <h4>Monthly summary</h4>
+                <p>Email digest of all payments at end of month</p>
+              </div>
+              <div class="toggle" data-key="notif_summary"></div>
+            </div>
+          </div>
+          <div class="settings-section">
+            <div class="settings-section-title">Notification Channels</div>
+            <div class="toggle-wrap">
+              <div class="toggle-info">
+                <h4>Email notifications</h4>
+                <p>{{ current_user.email if current_user else 'your@email.com' }}</p>
+              </div>
+              <div class="toggle on" data-key="channel_email"></div>
+            </div>
+            <div class="toggle-wrap">
+              <div class="toggle-info">
+                <h4>SMS notifications</h4>
+                <p>{{ current_user.phone if current_user else '+91 XXXXXXXXXX' }}</p>
+              </div>
+              <div class="toggle" data-key="channel_sms"></div>
+            </div>
+          </div>
+          <div style="display:flex;justify-content:flex-end;">
+            <button type="submit" class="btn btn-primary">Save preferences</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ══ PAYMENT TAB ══ -->
+      <div class="tab-panel" id="tab-payment">
+        <div class="settings-section">
+          <div class="settings-section-title">Saved Payment Methods</div>
+
+          {% if payment_methods %}
+            {% for pm in payment_methods %}
+            <div class="payment-card-display">
+              <div class="card-icon-big">💳</div>
+              <div>
+                <div class="card-ending">•••• •••• •••• {{ pm.last4 }}</div>
+                <div class="card-exp">Expires {{ pm.exp }} · {{ pm.brand }}</div>
+              </div>
+              <span class="pill pill-green" style="margin-left:auto;">Default</span>
+            </div>
+            {% endfor %}
+          {% else %}
+            <div class="payment-card-display">
+              <div class="card-icon-big">💳</div>
+              <div>
+                <div class="card-ending">•••• •••• •••• 4242</div>
+                <div class="card-exp">Expires 12/28 · Stripe Test</div>
+              </div>
+              <span class="pill pill-blue" style="margin-left:auto;">Sandbox</span>
+            </div>
+          {% endif %}
+
+          <button class="btn btn-secondary btn-sm" style="margin-top:0.5rem;"
+            onclick="window.location='/settings/add-card'">+ Add payment method</button>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-section-title">Stripe Integration</div>
+          <div class="toggle-wrap">
+            <div class="toggle-info">
+              <h4>Sandbox mode</h4>
+              <p>Use Stripe test credentials — no real money moved</p>
+            </div>
+            <div class="toggle on" data-key="stripe_sandbox"></div>
+          </div>
+          <div class="field" style="margin-top:1rem;">
+            <label>Stripe Publishable Key</label>
+            <input type="text" name="stripe_pk" placeholder="pk_test_..." value="{{ stripe_pk | default('') }}" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ SECURITY TAB ══ -->
+      <div class="tab-panel" id="tab-security">
+        <div class="settings-section">
+          <div class="settings-section-title">Change Password</div>
+          <form method="POST" action="/settings/password">
+            <div class="field">
+              <label>Current Password</label>
+              <input type="password" name="current_password" placeholder="••••••••" />
+            </div>
+            <div class="two-col-form">
+              <div class="field">
+                <label>New Password</label>
+                <input type="password" name="new_password" placeholder="••••••••" />
+              </div>
+              <div class="field">
+                <label>Confirm New Password</label>
+                <input type="password" name="confirm_password" placeholder="••••••••" />
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Update password</button>
+          </form>
+        </div>
+
+        <div class="settings-section danger-zone">
+          <div class="settings-section-title">Danger Zone</div>
+          <div class="toggle-wrap">
+            <div class="toggle-info">
+              <h4>Pause all auto-payments</h4>
+              <p>Temporarily stop all pipelines without deleting them</p>
+            </div>
+            <button class="btn btn-secondary btn-sm"
+              onclick="confirmAction('Pause all auto-payments?', () => fetch('/api/pause-all', {method:'POST'}))">
+              Pause all
+            </button>
+          </div>
+          <div class="toggle-wrap">
+            <div class="toggle-info">
+              <h4>Delete account</h4>
+              <p>Permanently remove your account and all data</p>
+            </div>
+            <button class="btn btn-danger btn-sm"
+              onclick="confirmAction('Delete your account permanently? This cannot be undone.', () => window.location='/delete-account')">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+<script>
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => {
+      const tabs = ['profile','notifications','payment','security'];
+      t.classList.toggle('active', tabs[i] === name);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => {
+      p.classList.toggle('active', p.id === `tab-${name}`);
+    });
+  }
+
+  function saveSettings() {
+    showFlash('Settings saved successfully.', 'success');
+  }
+</script>
+</body>
+</html>

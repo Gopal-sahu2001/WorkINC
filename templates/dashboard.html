@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — WORKinc</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ══ SIDEBAR ══ -->
+  {% include 'partials/sidebar.html' %}
+
+  <!-- ══ MAIN ══ -->
+  <div class="main-content">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <h1>Bill Dashboard</h1>
+        <p>Overview of all your automated payments</p>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-date" id="live-date"></div>
+        <button class="btn btn-primary btn-sm" onclick="window.location='/autopay'">+ Add Bill</button>
+      </div>
+    </div>
+
+    <div class="page-body">
+
+      <!-- Flash messages from Flask -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <!-- ── STAT CARDS ── -->
+      <div class="stat-grid">
+        <div class="card">
+          <div class="card-title">This Month</div>
+          <div class="card-value">₹{{ stats.total_month | default('12,400') }}</div>
+          <div class="card-sub">↑ {{ stats.paid_count | default(3) }} auto-paid</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Upcoming</div>
+          <div class="card-value">₹{{ stats.upcoming | default('4,200') }}</div>
+          <div class="card-sub">Due in {{ stats.days_to_next | default(5) }} days</div>
+        </div>
+        <div class="card">
+          <div class="card-title">Time Saved</div>
+          <div class="card-value">{{ stats.time_saved | default('2.4') }} hrs</div>
+          <div class="card-sub">This month</div>
+        </div>
+      </div>
+
+      <!-- ── ACTIVE PIPELINES ── -->
+      <div class="section-head">
+        Active Pipelines
+        <a href="/autopay" style="color:var(--green);font-size:0.75rem;text-decoration:none;">View all →</a>
+      </div>
+
+      {% if bills %}
+        {% for bill in bills %}
+        <div class="row-item" onclick="window.location='/autopay'">
+          <div class="row-left">
+            <div class="row-icon">{{ bill.icon }}</div>
+            <div>
+              <div class="row-name">{{ bill.name }}</div>
+              <div class="row-sub">Due {{ bill.due_date }}</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div class="row-amount">₹{{ bill.amount }}</div>
+            <span class="pill {{ 'pill-green' if bill.status == 'auto-pay' else 'pill-yellow' }}">
+              {{ bill.status | title }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <!-- DEMO DATA when no DB bills exist yet -->
+        <div class="row-item" onclick="window.location='/autopay'">
+          <div class="row-left">
+            <div class="row-icon">⚡</div>
+            <div>
+              <div class="row-name">Electricity — TPCODL</div>
+              <div class="row-sub">Due May 28</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div class="row-amount">₹1,840</div>
+            <span class="pill pill-green">Auto-pay</span>
+          </div>
+        </div>
+        <div class="row-item" onclick="window.location='/autopay'">
+          <div class="row-left">
+            <div class="row-icon">📡</div>
+            <div>
+              <div class="row-name">Broadband — Airtel</div>
+              <div class="row-sub">Due Jun 1</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div class="row-amount">₹999</div>
+            <span class="pill pill-green">Auto-pay</span>
+          </div>
+        </div>
+        <div class="row-item" onclick="window.location='/autopay'">
+          <div class="row-left">
+            <div class="row-icon" style="background:rgba(234,179,8,0.1);">💧</div>
+            <div>
+              <div class="row-name">Water — BWSSB</div>
+              <div class="row-sub">Due Jun 5</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div class="row-amount">₹420</div>
+            <span class="pill pill-yellow">Pending</span>
+          </div>
+        </div>
+      {% endif %}
+
+      <!-- ── RECENT ACTIVITY ── -->
+      <div class="divider-line"></div>
+      <div class="section-head">
+        Recent Activity
+        <a href="/analytics" style="color:var(--green);font-size:0.75rem;text-decoration:none;">Analytics →</a>
+      </div>
+
+      {% if activity %}
+        {% for a in activity %}
+        <div class="row-item">
+          <div class="row-left">
+            <div class="row-icon" style="background:rgba(59,130,246,0.1);">✓</div>
+            <div>
+              <div class="row-name">{{ a.description }}</div>
+              <div class="row-sub">{{ a.timestamp }}</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div class="row-amount">₹{{ a.amount }}</div>
+            <span class="pill pill-green">Paid</span>
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="row-item">
+          <div class="row-left">
+            <div class="row-icon" style="background:rgba(59,130,246,0.1);">✓</div>
+            <div>
+              <div class="row-name">Electricity auto-paid</div>
+              <div class="row-sub">Apr 28, 2026 · 09:14 AM</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div class="row-amount">₹1,840</div>
+            <span class="pill pill-green">Paid</span>
+          </div>
+        </div>
+        <div class="row-item">
+          <div class="row-left">
+            <div class="row-icon" style="background:rgba(59,130,246,0.1);">✓</div>
+            <div>
+              <div class="row-name">Broadband auto-paid</div>
+              <div class="row-sub">Apr 30, 2026 · 10:00 AM</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div class="row-amount">₹999</div>
+            <span class="pill pill-green">Paid</span>
+          </div>
+        </div>
+      {% endif %}
+
+    </div><!-- /page-body -->
+  </div><!-- /main-content -->
+</div><!-- /app-shell -->
+
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+<script>
+  // Live date
+  document.getElementById('live-date').textContent =
+    new Date().toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+</script>
+</body>
+</html>
